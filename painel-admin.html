@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel — Barbearia do João</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --dark: #1A1A18; --cream: #F5F0E8; --accent: #C8A96E;
+    --muted: #7A7469; --border: #E2DAD0; --surface: #FFFFFF;
+    --green: #3B6D3B; --green-bg: #EAF3EA;
+    --red: #A32D2D; --red-bg: #FCEBEB;
+    --amber: #854F0B; --amber-bg: #FAEEDA;
+    --radius: 14px; --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--dark); min-height: 100vh; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--dark); color: white; display: flex; flex-direction: column; padding: 0; flex-shrink: 0; position: sticky; top: 0; height: 100vh; }
+  .sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .logo-icon { width: 34px; height: 34px; background: var(--accent); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; margin-bottom: 10px; }
+  .logo-name { font-family: 'DM Serif Display', serif; font-size: 16px; }
+  .logo-sub { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 2px; }
+  .nav { padding: 16px 12px; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.55); cursor: pointer; margin-bottom: 2px; transition: all .15s; }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); }
+  .nav-item.active { background: rgba(200,169,110,0.15); color: var(--accent); }
+  .sidebar-bottom { padding: 16px 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(200,169,110,0.2); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; color: var(--accent); }
+  .user-row { display: flex; align-items: center; gap: 10px; }
+  .user-name { font-size: 13px; color: rgba(255,255,255,0.7); }
+  .user-role { font-size: 11px; color: rgba(255,255,255,0.3); }
+  .main { flex: 1; padding: 32px 28px; overflow-y: auto; }
+  .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .page-title { font-family: 'DM Serif Display', serif; font-size: 26px; letter-spacing: -0.02em; }
+  .page-sub { font-size: 14px; color: var(--muted); margin-top: 4px; font-weight: 300; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .date-nav { display: flex; align-items: center; background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  .date-nav button { padding: 8px 14px; border: none; background: transparent; cursor: pointer; font-size: 14px; color: var(--muted); transition: all .15s; }
+  .date-nav button:hover { background: var(--cream); }
+  .date-nav .date-label { padding: 8px 16px; font-size: 13px; font-weight: 500; border-left: 1px solid var(--border); border-right: 1px solid var(--border); min-width: 160px; text-align: center; }
+  .btn-today { padding: 8px 16px; border: 1px solid var(--border); background: white; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s; color: var(--dark); }
+  .btn-today:hover { background: var(--dark); color: white; border-color: var(--dark); }
+  .metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 28px; }
+  .metric-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+  .metric-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+  .metric-value { font-size: 28px; font-weight: 500; letter-spacing: -0.02em; }
+  .metric-note { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .metric-card.highlight { background: var(--dark); border-color: var(--dark); }
+  .metric-card.highlight .metric-label { color: rgba(255,255,255,0.4); }
+  .metric-card.highlight .metric-value { color: var(--accent); }
+  .metric-card.highlight .metric-note { color: rgba(255,255,255,0.3); }
+  .table-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .table-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .table-title { font-size: 15px; font-weight: 500; }
+  .filter-tabs { display: flex; gap: 4px; }
+  .tab { padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; transition: all .15s; border: 1px solid transparent; color: var(--muted); }
+  .tab:hover { color: var(--dark); }
+  .tab.active { background: var(--dark); color: white; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 20px; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); background: #FDFAF7; }
+  td { padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #FDFAF7; }
+  .time-badge { display: inline-flex; align-items: center; background: var(--cream); border-radius: 6px; padding: 4px 10px; font-weight: 500; font-size: 13px; }
+  .client-name { font-weight: 500; }
+  .client-phone { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .service-pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; background: var(--cream); color: var(--dark); }
+  .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .status-confirmed { background: var(--green-bg); color: var(--green); }
+  .status-pending   { background: var(--amber-bg); color: var(--amber); }
+  .status-cancelled { background: var(--red-bg);   color: var(--red); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .actions { display: flex; gap: 6px; }
+  .action-btn { padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; border: 1px solid var(--border); background: white; transition: all .15s; color: var(--dark); }
+  .action-btn:hover { background: var(--cream); }
+  .action-btn.confirm { border-color: var(--green); color: var(--green); }
+  .action-btn.confirm:hover { background: var(--green-bg); }
+  .action-btn.cancel { border-color: var(--red); color: var(--red); }
+  .action-btn.cancel:hover { background: var(--red-bg); }
+  .action-btn.wpp { border-color: #25D366; color: #25D366; }
+  .action-btn.wpp:hover { background: #EAF9EF; }
+  .empty-state { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; }
+  .loading { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; }
+  .config-bar { background: #FFF8E8; border: 1px solid #FAC775; border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: var(--amber); display: none; }
+  .config-bar.show { display: block; }
+  @media(max-width:900px){ .sidebar{display:none} .metrics{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">✂</div>
+      <div class="logo-name">Barbearia do João</div>
+      <div class="logo-sub">Painel de gestão</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active">📅 Agendamentos</div>
+      <div class="nav-item">👥 Clientes</div>
+      <div class="nav-item">✂ Serviços</div>
+      <div class="nav-item">📊 Relatórios</div>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="user-row">
+        <div class="avatar">JB</div>
+        <div><div class="user-name">João Barbeiro</div><div class="user-role">Administrador</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="config-warning" class="config-bar show">
+      ⚙️ Configure suas credenciais do Supabase nas variáveis abaixo no topo do HTML para conectar ao banco real.
+    </div>
+
+    <div class="page-header">
+      <div>
+        <div class="page-title">Agendamentos</div>
+        <div class="page-sub" id="subtitle-date">Carregando...</div>
+      </div>
+      <div class="header-right">
+        <button class="btn-today" onclick="goToday()">Hoje</button>
+        <div class="date-nav">
+          <button onclick="changeDay(-1)">&#8592;</button>
+          <div class="date-label" id="date-label">—</div>
+          <button onclick="changeDay(1)">&#8594;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric-card highlight">
+        <div class="metric-label">Agendamentos hoje</div>
+        <div class="metric-value" id="m-total">—</div>
+        <div class="metric-note" id="m-note">carregando...</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Confirmados</div>
+        <div class="metric-value" id="m-confirmed" style="color:var(--green)">—</div>
+        <div class="metric-note">prontos para atender</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Pendentes</div>
+        <div class="metric-value" id="m-pending" style="color:var(--amber)">—</div>
+        <div class="metric-note">aguardando confirmação</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Faturamento previsto</div>
+        <div class="metric-value" id="m-revenue">—</div>
+        <div class="metric-note">agendamentos ativos</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">Lista de agendamentos</div>
+        <div class="filter-tabs">
+          <div class="tab active" onclick="filterTable('all', this)">Todos</div>
+          <div class="tab" onclick="filterTable('confirmado', this)">Confirmados</div>
+          <div class="tab" onclick="filterTable('pendente', this)">Pendentes</div>
+          <div class="tab" onclick="filterTable('cancelado', this)">Cancelados</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Horário</th>
+            <th>Cliente</th>
+            <th>Serviço</th>
+            <th>Valor</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"><tr><td colspan="6"><div class="loading">Carregando agendamentos...</div></td></tr></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script>
+// =====================================================
+// CONFIGURE AQUI AS SUAS CREDENCIAIS DO SUPABASE
+// =====================================================
+var SUPABASE_URL = 'https://msvvheuouratsgqlcyrg.supabase.co';
+var SUPABASE_KEY = 'SUA_PUBLISHABLE_KEY_AQUI';
+// =====================================================
+
+var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+var currentDate = new Date(); currentDate.setHours(0,0,0,0);
+var currentFilter = 'all';
+var allAppts = [];
+
+var months  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+var weekdays = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+
+function dateKey(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+async function loadAppointments() {
+  var key = dateKey(currentDate);
+  var today = new Date(); today.setHours(0,0,0,0);
+  var isToday = currentDate.getTime() === today.getTime();
+
+  document.getElementById('date-label').textContent = currentDate.getDate()+' de '+months[currentDate.getMonth()]+' '+currentDate.getFullYear();
+  document.getElementById('subtitle-date').textContent = (isToday ? 'Hoje, ' : '') + weekdays[currentDate.getDay()];
+
+  var { data, error } = await supabase
+    .from('agendamentos')
+    .select('*')
+    .eq('data', key)
+    .order('horario', { ascending: true });
+
+  if (error) {
+    console.error('Erro Supabase:', error);
+    document.getElementById('config-warning').classList.add('show');
+    document.getElementById('config-warning').textContent = '❌ Erro ao conectar ao Supabase. Verifique as credenciais no topo do HTML.';
+    return;
+  }
+
+  document.getElementById('config-warning').classList.remove('show');
+  allAppts = data || [];
+  updateMetrics();
+  renderTable();
+}
+
+function updateMetrics() {
+  var confirmed = allAppts.filter(a => a.status === 'confirmado').length;
+  var pending   = allAppts.filter(a => a.status === 'pendente').length;
+  var revenue   = allAppts.filter(a => a.status !== 'cancelado').reduce((s,a) => s + (a.preco||0), 0);
+
+  document.getElementById('m-total').textContent = allAppts.length;
+  document.getElementById('m-note').textContent = confirmed+' confirmados, '+pending+' pendentes';
+  document.getElementById('m-confirmed').textContent = confirmed;
+  document.getElementById('m-pending').textContent = pending;
+  document.getElementById('m-revenue').textContent = 'R$'+revenue;
+}
+
+function renderTable() {
+  var tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+  var filtered = currentFilter === 'all' ? allAppts : allAppts.filter(a => a.status === currentFilter);
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">Nenhum agendamento encontrado.</div></td></tr>';
+    return;
+  }
+
+  filtered.forEach(function(a) {
+    var statusHtml = {
+      confirmado: '<span class="status-badge status-confirmed"><span class="status-dot"></span>Confirmado</span>',
+      pendente:   '<span class="status-badge status-pending"><span class="status-dot"></span>Pendente</span>',
+      cancelado:  '<span class="status-badge status-cancelled"><span class="status-dot"></span>Cancelado</span>',
+    }[a.status] || '<span class="status-badge status-pending"><span class="status-dot"></span>'+a.status+'</span>';
+
+    var phone = (a.cliente_phone||'').replace(/\D/g,'');
+    var actionsHtml = a.status === 'cancelado'
+      ? '<span style="font-size:12px;color:var(--muted)">—</span>'
+      : '<div class="actions">'
+        + (a.status === 'pendente' ? '<button class="action-btn confirm" onclick="updateStatus('+a.id+',\'confirmado\')">Confirmar</button>' : '')
+        + '<button class="action-btn wpp" onclick="sendWpp(\''+phone+'\',\''+a.cliente_phone+'\',\''+a.horario+'\',\''+a.servico+'\')">WPP</button>'
+        + '<button class="action-btn cancel" onclick="updateStatus('+a.id+',\'cancelado\')">Cancelar</button>'
+        + '</div>';
+
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><div class="time-badge">'+(a.horario||'—')+'</div></td>'
+      +'<td><div class="client-name">'+(a.cliente_phone||'—')+'</div></td>'
+      +'<td><span class="service-pill">'+(a.servico||'—')+'</span></td>'
+      +'<td style="font-weight:500">R$'+(a.preco||0)+'</td>'
+      +'<td>'+statusHtml+'</td>'
+      +'<td>'+actionsHtml+'</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+async function updateStatus(id, status) {
+  if (status === 'cancelado' && !confirm('Cancelar este agendamento?')) return;
+  var { error } = await supabase.from('agendamentos').update({ status }).eq('id', id);
+  if (!error) loadAppointments();
+}
+
+function sendWpp(phone, display, time, service) {
+  var num = phone.length === 11 ? '55' + phone : phone;
+  var msg = encodeURIComponent('Olá! Confirmando seu agendamento de '+service+' às '+time+'. Barbearia do João.');
+  window.open('https://wa.me/'+num+'?text='+msg, '_blank');
+}
+
+function filterTable(filter, el) {
+  currentFilter = filter;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+function changeDay(delta) {
+  currentDate.setDate(currentDate.getDate() + delta);
+  loadAppointments();
+}
+
+function goToday() {
+  currentDate = new Date(); currentDate.setHours(0,0,0,0);
+  loadAppointments();
+}
+
+// Verifica se as credenciais foram configuradas
+if (SUPABASE_KEY === 'SUA_PUBLISHABLE_KEY_AQUI') {
+  document.getElementById('config-warning').classList.add('show');
+} else {
+  loadAppointments();
+  setInterval(loadAppointments, 30000); // atualiza a cada 30 segundos
+}
+</script>
+</body>
+</html>
